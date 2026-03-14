@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>CardPulse - Payment Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #000000;
+  --card-bg: rgba(255,255,255,0.06);
+  --card-border: rgba(255,255,255,0.1);
+  --text: #ffffff;
+  --text-dim: rgba(255,255,255,0.5);
+  --text-mid: rgba(255,255,255,0.75);
+  --accent: #00E5A0;
+  --accent-glow: rgba(0,229,160,0.3);
+  --danger: #FF4D6A;
+  --danger-glow: rgba(255,77,106,0.3);
+  --warning: #FFB347;
+  --warning-glow: rgba(255,179,71,0.25);
+  --blue: #4DA6FF;
+  --blue-glow: rgba(77,166,255,0.25);
+  --purple: #B47AFF;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --safe-top: env(safe-area-inset-top, 20px);
+  --safe-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  overflow-x: hidden;
+  padding-top: var(--safe-top);
+  padding-bottom: calc(90px + var(--safe-bottom));
+}
+
+/* ─── Ambient Background ─── */
+.ambient {
+  position: fixed; top:0; left:0; right:0; bottom:0;
+  pointer-events: none; z-index:0; overflow:hidden;
+}
+.ambient .orb {
+  position: absolute; border-radius:50%; filter: blur(80px); opacity:0.15;
+  animation: orbFloat 12s ease-in-out infinite;
+}
+.ambient .orb:nth-child(1) { width:300px; height:300px; background:#00E5A0; top:-80px; right:-60px; }
+.ambient .orb:nth-child(2) { width:250px; height:250px; background:#4DA6FF; bottom:10%; left:-80px; animation-delay:-4s; }
+.ambient .orb:nth-child(3) { width:200px; height:200px; background:#B47AFF; top:40%; right:-40px; animation-delay:-8s; }
+
+@keyframes orbFloat {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33% { transform: translate(20px,-30px) scale(1.1); }
+  66% { transform: translate(-15px,20px) scale(0.95); }
+}
+
+/* ─── Main Container ─── */
+.container { position:relative; z-index:1; max-width:430px; margin:0 auto; padding:0 20px; }
+
+/* ─── Header ─── */
+.header {
+  padding: 16px 0 8px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header h1 {
+  font-size: 28px; font-weight: 700; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.header .logo-dot {
+  display: inline-block; width:8px; height:8px; border-radius:50%;
+  background: var(--accent); box-shadow: 0 0 12px var(--accent-glow);
+  margin-left: 2px; vertical-align: super;
+}
+
+/* ─── Summary Cards Row ─── */
+.summary-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin: 16px 0;
+}
+.summary-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  animation: fadeUp 0.5s ease both;
+}
+.summary-card:nth-child(2) { animation-delay: 0.1s; }
+.summary-card .label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1.2px; color: var(--text-dim); margin-bottom:8px;
+}
+.summary-card .value {
+  font-family: 'Space Mono', monospace; font-size: 22px; font-weight: 700;
+}
+.summary-card.pending .value { color: var(--danger); }
+.summary-card.paid .value { color: var(--accent); }
+
+/* ─── Section Title ─── */
+.section-title {
+  font-size: 13px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--text-dim);
+  margin: 24px 0 14px; display:flex; align-items:center; gap:8px;
+}
+.section-title .count {
+  background: rgba(255,255,255,0.1); border-radius:20px;
+  padding: 2px 10px; font-size:11px; font-family:'Space Mono',monospace;
+}
+
+/* ─── Credit Card Item ─── */
+.card-list { display:flex; flex-direction:column; gap:14px; }
+
+.cc-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  position:relative; overflow:hidden;
+  animation: fadeUp 0.4s ease both;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.cc-card:active { transform: scale(0.98); }
+
+.cc-card .card-gradient {
+  position:absolute; top:0; right:0; width:120px; height:120px;
+  border-radius:50%; filter:blur(50px); opacity:0.12; pointer-events:none;
+}
+
+.cc-card-header {
+  display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px;
+}
+.cc-name {
+  font-size: 18px; font-weight: 700; letter-spacing: -0.3px;
+  max-width: 200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.cc-due {
+  font-size: 12px; color: var(--text-dim); margin-top:4px;
+  display:flex; align-items:center; gap:5px;
+}
+.cc-due .dot {
+  width:6px; height:6px; border-radius:50%;
+}
+.cc-due .dot.soon { background: var(--warning); box-shadow:0 0 8px var(--warning-glow); }
+.cc-due .dot.ok { background: var(--accent); box-shadow:0 0 8px var(--accent-glow); }
+.cc-due .dot.overdue { background: var(--danger); box-shadow:0 0 8px var(--danger-glow); animation: pulse 1.5s infinite; }
+
+@keyframes pulse { 0%,100%{opacity:1;}50%{opacity:0.4;} }
+
+.cc-actions-top {
+  display:flex; gap:6px;
+}
+.btn-icon {
+  width:34px; height:34px; border-radius:10px; border:none;
+  background: rgba(255,255,255,0.08); color:var(--text-mid);
+  font-size:16px; cursor:pointer; display:grid; place-items:center;
+  transition: background 0.2s, color 0.2s;
+}
+.btn-icon:hover { background:rgba(255,255,255,0.15); color:#fff; }
+.btn-icon.delete:hover { background:rgba(255,77,106,0.2); color:var(--danger); }
+
+/* Progress Bar */
+.progress-section { margin-bottom:14px; }
+.progress-labels {
+  display:flex; justify-content:space-between; margin-bottom:8px;
+}
+.progress-labels span {
+  font-size:12px; color:var(--text-dim);
+}
+.progress-labels .amount {
+  font-family:'Space Mono',monospace; font-weight:700; font-size:13px; color:var(--text);
+}
+.progress-track {
+  height:8px; background:rgba(255,255,255,0.08); border-radius:10px; overflow:hidden;
+  position:relative;
+}
+.progress-fill {
+  height:100%; border-radius:10px;
+  background: linear-gradient(90deg, var(--accent), #00C9FF);
+  transition: width 0.6s cubic-bezier(0.22,1,0.36,1);
+  position:relative;
+}
+.progress-fill::after {
+  content:''; position:absolute; top:0; right:0; bottom:0; width:30px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+  border-radius: 0 10px 10px 0;
+}
+.progress-fill.complete {
+  background: linear-gradient(90deg, var(--accent), #7BFFCC);
+}
+
+.payment-stats {
+  display:flex; justify-content:space-between; margin-top:8px;
+}
+.stat { text-align:center; }
+.stat .stat-val {
+  font-family:'Space Mono',monospace; font-size:14px; font-weight:700;
+}
+.stat .stat-label { font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.8px; margin-top:2px; }
+.stat.paid-stat .stat-val { color: var(--accent); }
+.stat.pend-stat .stat-val { color: var(--danger); }
+.stat.rem-stat .stat-val { color: var(--warning); }
+
+/* Reminder Badge */
+.reminder-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  background: rgba(255,179,71,0.12); border:1px solid rgba(255,179,71,0.2);
+  border-radius:8px; padding:4px 10px; font-size:11px; color:var(--warning);
+  font-weight:600; margin-top:10px;
+}
+
+/* Payment History */
+.payment-history { margin-top:12px; }
+.payment-history-title {
+  font-size:11px; font-weight:600; text-transform:uppercase;
+  letter-spacing:1px; color:var(--text-dim); margin-bottom:8px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.payment-entry {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 12px; border-radius:10px;
+  background:rgba(0,229,160,0.06); border:1px solid rgba(0,229,160,0.1);
+  margin-bottom:6px; animation: fadeUp 0.3s ease both;
+}
+.payment-entry .pe-info { display:flex; flex-direction:column; }
+.payment-entry .pe-amount {
+  font-family:'Space Mono',monospace; font-size:14px; font-weight:700; color:var(--accent);
+}
+.payment-entry .pe-date { font-size:10px; color:var(--text-dim); margin-top:2px; }
+.payment-entry .pe-del {
+  width:26px; height:26px; border-radius:8px; border:none;
+  background:rgba(255,77,106,0.1); color:var(--danger);
+  font-size:12px; cursor:pointer; display:grid; place-items:center;
+}
+
+/* Add Payment Button */
+.btn-add-payment {
+  width:100%; padding:10px; border-radius:12px; border:1px dashed rgba(0,229,160,0.3);
+  background:rgba(0,229,160,0.06); color:var(--accent);
+  font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600;
+  cursor:pointer; transition:all 0.2s; margin-top:8px;
+}
+.btn-add-payment:hover { background:rgba(0,229,160,0.12); border-color:rgba(0,229,160,0.5); }
+
+/* ─── Empty State ─── */
+.empty-state {
+  text-align:center; padding:60px 20px;
+  animation: fadeUp 0.6s ease both;
+}
+.empty-icon {
+  font-size:64px; margin-bottom:16px; opacity:0.3;
+}
+.empty-state h3 { font-size:20px; font-weight:600; margin-bottom:8px; color:var(--text-mid); }
+.empty-state p { font-size:14px; color:var(--text-dim); line-height:1.5; }
+
+/* ─── FAB ─── */
+.fab {
+  position:fixed; bottom:calc(100px + var(--safe-bottom)); right:24px;
+  width:58px; height:58px; border-radius:18px; border:none;
+  background: linear-gradient(135deg, #00E5A0, #00C9FF);
+  color:#000; font-size:28px; font-weight:300;
+  cursor:pointer; z-index:100;
+  display:grid; place-items:center;
+  box-shadow: 0 8px 32px rgba(0,229,160,0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+  animation: fabIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.3s both;
+}
+.fab:active { transform:scale(0.9); }
+@keyframes fabIn { from{transform:scale(0) rotate(180deg);opacity:0;} to{transform:scale(1) rotate(0);opacity:1;} }
+
+/* ─── Bottom Nav ─── */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0;
+  background: rgba(10,10,10,0.85);
+  backdrop-filter:blur(30px); -webkit-backdrop-filter:blur(30px);
+  border-top:1px solid rgba(255,255,255,0.06);
+  padding: 10px 0 calc(10px + var(--safe-bottom));
+  z-index:99; display:flex; justify-content:center; gap:40px;
+}
+.nav-item {
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  background:none; border:none; color:var(--text-dim);
+  font-size:10px; font-weight:600; cursor:pointer;
+  transition: color 0.2s; text-transform:uppercase; letter-spacing:0.8px;
+}
+.nav-item .nav-icon { font-size:22px; transition:transform 0.2s; }
+.nav-item.active { color:var(--accent); }
+.nav-item.active .nav-icon { transform:scale(1.1); }
+
+/* ─── Modal / Overlay ─── */
+.modal-overlay {
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,0.7); backdrop-filter:blur(10px);
+  z-index:200; display:none; align-items:flex-end; justify-content:center;
+  animation: fadeIn 0.2s ease;
+}
+.modal-overlay.show { display:flex; }
+
+.modal {
+  background: #1A1A1A;
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius: 24px 24px 0 0;
+  width:100%; max-width:430px;
+  padding: 24px 24px calc(24px + var(--safe-bottom));
+  animation: slideUp 0.35s cubic-bezier(0.22,1,0.36,1);
+  max-height:85dvh; overflow-y:auto;
+}
+.modal-handle {
+  width:36px; height:4px; background:rgba(255,255,255,0.2);
+  border-radius:4px; margin:0 auto 20px;
+}
+.modal h2 {
+  font-size:22px; font-weight:700; letter-spacing:-0.3px; margin-bottom:24px;
+}
+
+.form-group { margin-bottom:18px; }
+.form-label {
+  font-size:12px; font-weight:600; text-transform:uppercase;
+  letter-spacing:1px; color:var(--text-dim); margin-bottom:8px; display:block;
+}
+.form-input {
+  width:100%; padding:14px 16px; border-radius:14px;
+  border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.06); color:#fff;
+  font-family:'DM Sans',sans-serif; font-size:16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline:none;
+}
+.form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.form-input::placeholder { color:rgba(255,255,255,0.25); }
+
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+.btn-submit {
+  width:100%; padding:16px; border-radius:16px; border:none;
+  background: linear-gradient(135deg, #00E5A0, #00C9FF);
+  color:#000; font-family:'DM Sans',sans-serif;
+  font-size:16px; font-weight:700; cursor:pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin-top:8px;
+}
+.btn-submit:active { transform:scale(0.97); }
+
+.btn-cancel {
+  width:100%; padding:14px; border-radius:16px;
+  border:1px solid rgba(255,255,255,0.1);
+  background:transparent; color:var(--text-mid);
+  font-family:'DM Sans',sans-serif; font-size:15px; font-weight:600;
+  cursor:pointer; margin-top:8px;
+}
+
+/* ─── Tab Content ─── */
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* ─── History Tab ─── */
+.history-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  backdrop-filter: blur(20px);
+  margin-bottom:10px;
+  display:flex; align-items:center; justify-content:space-between;
+  animation: fadeUp 0.3s ease both;
+}
+.history-card .hc-left { display:flex; flex-direction:column; }
+.history-card .hc-name { font-size:15px; font-weight:600; }
+.history-card .hc-date { font-size:11px; color:var(--text-dim); margin-top:3px; }
+.history-card .hc-amount {
+  font-family:'Space Mono',monospace; font-size:16px; font-weight:700; color:var(--accent);
+}
+
+/* ─── Animations ─── */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(16px); }
+  to { opacity:1; transform:translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity:0; } to { opacity:1; }
+}
+@keyframes slideUp {
+  from { transform:translateY(100%); } to { transform:translateY(0); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width:0; }
+
+/* Card color accents */
+.cc-card[data-color="emerald"] .card-gradient { background: #00E5A0; }
+.cc-card[data-color="blue"] .card-gradient { background: #4DA6FF; }
+.cc-card[data-color="purple"] .card-gradient { background: #B47AFF; }
+.cc-card[data-color="coral"] .card-gradient { background: #FF6B8A; }
+.cc-card[data-color="gold"] .card-gradient { background: #FFB347; }
+
+.color-picker { display:flex; gap:10px; margin-top:8px; }
+.color-dot {
+  width:32px; height:32px; border-radius:10px; border:2px solid transparent;
+  cursor:pointer; transition:all 0.2s;
+}
+.color-dot:hover { transform:scale(1.1); }
+.color-dot.selected { border-color:#fff; box-shadow:0 0 12px rgba(255,255,255,0.3); }
+.color-dot[data-c="emerald"] { background:linear-gradient(135deg,#00E5A0,#00C9FF); }
+.color-dot[data-c="blue"] { background:linear-gradient(135deg,#4DA6FF,#7B61FF); }
+.color-dot[data-c="purple"] { background:linear-gradient(135deg,#B47AFF,#FF6BD6); }
+.color-dot[data-c="coral"] { background:linear-gradient(135deg,#FF6B8A,#FF9A5C); }
+.color-dot[data-c="gold"] { background:linear-gradient(135deg,#FFB347,#FFD700); }
+
+/* Notification Banner */
+.notif-banner {
+  position:fixed; top:calc(var(--safe-top) + 10px); left:50%; transform:translateX(-50%);
+  background:rgba(30,30,30,0.95); border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px; padding:12px 20px;
+  backdrop-filter:blur(20px); z-index:300;
+  display:flex; align-items:center; gap:10px;
+  font-size:14px; font-weight:500;
+  animation: slideDown 0.4s cubic-bezier(0.22,1,0.36,1);
+  max-width:90%;
+}
+.notif-banner.hide { animation: slideUpOut 0.3s ease forwards; }
+@keyframes slideDown { from{transform:translate(-50%,-100%);opacity:0;} to{transform:translate(-50%,0);opacity:1;} }
+@keyframes slideUpOut { from{transform:translate(-50%,0);opacity:1;} to{transform:translate(-50%,-100%);opacity:0;} }
+
+/* Toggle for expand/collapse */
+.cc-card .expand-toggle {
+  font-size:11px; color:var(--text-dim); cursor:pointer;
+  display:flex; align-items:center; gap:4px; margin-top:10px;
+  font-weight:600; text-transform:uppercase; letter-spacing:0.8px;
+}
+.payment-history.collapsed { display:none; }
+
+/* Fully paid badge */
+.fully-paid-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  background: rgba(0,229,160,0.12); border:1px solid rgba(0,229,160,0.25);
+  border-radius:8px; padding:4px 10px; font-size:11px; color:var(--accent);
+  font-weight:700; margin-top:10px; text-transform:uppercase; letter-spacing:0.8px;
+}
+</style>
+</head>
+<body>
+
+<div class="ambient">
+  <div class="orb"></div><div class="orb"></div><div class="orb"></div>
+</div>
+
+<!-- Notification Banner Container -->
+<div id="notifContainer"></div>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>CardPulse<span class="logo-dot"></span></h1>
+    <span style="font-size:12px;color:var(--text-dim);font-weight:600;letter-spacing:1px;">TRACKER</span>
+  </div>
+
+  <!-- Tab: Cards -->
+  <div id="tabCards" class="tab-content active">
+    <!-- Summary -->
+    <div class="summary-row">
+      <div class="summary-card pending">
+        <div class="label">Total Pending</div>
+        <div class="value" id="totalPending">0</div>
+      </div>
+      <div class="summary-card paid">
+        <div class="label">Total Paid</div>
+        <div class="value" id="totalPaid">0</div>
+      </div>
+    </div>
+
+    <div class="section-title">
+      Your Cards <span class="count" id="cardCount">0</span>
+    </div>
+
+    <div class="card-list" id="cardList"></div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">💳</div>
+      <h3>No Cards Yet</h3>
+      <p>Tap the + button to add your first<br>credit card and start tracking payments</p>
+    </div>
+  </div>
+
+  <!-- Tab: History -->
+  <div id="tabHistory" class="tab-content">
+    <div class="section-title" style="margin-top:16px;">
+      Payment History <span class="count" id="historyCount">0</span>
+    </div>
+    <div id="historyList"></div>
+    <div class="empty-state" id="historyEmpty" style="display:none;">
+      <div class="empty-icon">📋</div>
+      <h3>No Payments Yet</h3>
+      <p>Your payment history will appear here<br>once you start logging payments</p>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fabAdd" onclick="openAddCard()">+</button>
+
+<!-- Bottom Navigation -->
+<div class="bottom-nav">
+  <button class="nav-item active" data-tab="tabCards" onclick="switchTab('tabCards',this)">
+    <span class="nav-icon">💳</span>Cards
+  </button>
+  <button class="nav-item" data-tab="tabHistory" onclick="switchTab('tabHistory',this)">
+    <span class="nav-icon">📋</span>History
+  </button>
+</div>
+
+<!-- Add Card Modal -->
+<div class="modal-overlay" id="addCardModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="modalTitle">Add Card</h2>
+    <form id="cardForm" onsubmit="saveCard(event)">
+      <input type="hidden" id="editId" value="">
+      <div class="form-group">
+        <label class="form-label">Card Name</label>
+        <input type="text" class="form-input" id="fCardName" placeholder="e.g. ADCB Visa, Emirates NBD" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Monthly Amount</label>
+          <input type="number" step="0.01" class="form-input" id="fAmount" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Day</label>
+          <input type="number" min="1" max="31" class="form-input" id="fDueDay" placeholder="1-31" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Reminder (Days Before)</label>
+          <input type="number" min="0" max="30" class="form-input" id="fReminder" placeholder="e.g. 3" value="3">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Currency</label>
+          <input type="text" class="form-input" id="fCurrency" placeholder="AED" value="AED" maxlength="5">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Card Color</label>
+        <div class="color-picker" id="colorPicker">
+          <div class="color-dot selected" data-c="emerald" onclick="pickColor(this)"></div>
+          <div class="color-dot" data-c="blue" onclick="pickColor(this)"></div>
+          <div class="color-dot" data-c="purple" onclick="pickColor(this)"></div>
+          <div class="color-dot" data-c="coral" onclick="pickColor(this)"></div>
+          <div class="color-dot" data-c="gold" onclick="pickColor(this)"></div>
+        </div>
+      </div>
+      <button type="submit" class="btn-submit">Save Card</button>
+      <button type="button" class="btn-cancel" onclick="closeModal('addCardModal')">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Payment Modal -->
+<div class="modal-overlay" id="addPaymentModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Log Payment</h2>
+    <form onsubmit="savePayment(event)">
+      <input type="hidden" id="payCardId" value="">
+      <div class="form-group">
+        <label class="form-label">Payment Amount</label>
+        <input type="number" step="0.01" class="form-input" id="fPayAmount" placeholder="0.00" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Date</label>
+        <input type="date" class="form-input" id="fPayDate" required>
+      </div>
+      <button type="submit" class="btn-submit">Log Payment</button>
+      <button type="button" class="btn-cancel" onclick="closeModal('addPaymentModal')">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// ─── Data Store ───
+const STORAGE_KEY = 'cardpulse_data';
+let appData = { cards: [] };
+
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) appData = JSON.parse(raw);
+}
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+}
+
+// ─── Init ───
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+  render();
+  checkReminders();
+  // Set today as default for payment date
+  document.getElementById('fPayDate').valueAsDate = new Date();
+});
+
+// ─── Tab Switching ───
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  btn.classList.add('active');
+  if (tabId === 'tabHistory') renderHistory();
+}
+
+// ─── Color Picker ───
+let selectedColor = 'emerald';
+function pickColor(el) {
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedColor = el.dataset.c;
+}
+
+// ─── Modal Controls ───
+function openAddCard() {
+  document.getElementById('editId').value = '';
+  document.getElementById('modalTitle').textContent = 'Add Card';
+  document.getElementById('cardForm').reset();
+  document.getElementById('fCurrency').value = 'AED';
+  document.getElementById('fReminder').value = '3';
+  selectedColor = 'emerald';
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+  document.querySelector('.color-dot[data-c="emerald"]').classList.add('selected');
+  document.getElementById('addCardModal').classList.add('show');
+}
+
+function openEditCard(id) {
+  const card = appData.cards.find(c => c.id === id);
+  if (!card) return;
+  document.getElementById('editId').value = id;
+  document.getElementById('modalTitle').textContent = 'Edit Card';
+  document.getElementById('fCardName').value = card.name;
+  document.getElementById('fAmount').value = card.amount;
+  document.getElementById('fDueDay').value = card.dueDay;
+  document.getElementById('fReminder').value = card.reminderDays;
+  document.getElementById('fCurrency').value = card.currency;
+  selectedColor = card.color;
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+  document.querySelector(`.color-dot[data-c="${card.color}"]`)?.classList.add('selected');
+  document.getElementById('addCardModal').classList.add('show');
+}
+
+function openPayment(cardId) {
+  document.getElementById('payCardId').value = cardId;
+  document.getElementById('fPayAmount').value = '';
+  document.getElementById('fPayDate').valueAsDate = new Date();
+  document.getElementById('addPaymentModal').classList.add('show');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('show');
+  });
+});
+
+// ─── Save Card ───
+function saveCard(e) {
+  e.preventDefault();
+  const editId = document.getElementById('editId').value;
+  const cardObj = {
+    id: editId || Date.now().toString(),
+    name: document.getElementById('fCardName').value.trim(),
+    amount: parseFloat(document.getElementById('fAmount').value),
+    dueDay: parseInt(document.getElementById('fDueDay').value),
+    reminderDays: parseInt(document.getElementById('fReminder').value) || 0,
+    currency: document.getElementById('fCurrency').value.trim() || 'AED',
+    color: selectedColor,
+    payments: []
+  };
+
+  if (editId) {
+    const idx = appData.cards.findIndex(c => c.id === editId);
+    if (idx > -1) {
+      cardObj.payments = appData.cards[idx].payments;
+      appData.cards[idx] = cardObj;
+    }
+  } else {
+    appData.cards.push(cardObj);
+  }
+
+  saveData();
+  closeModal('addCardModal');
+  render();
+  showNotif(editId ? 'Card updated!' : 'Card added!', '✅');
+}
+
+// ─── Save Payment ───
+function savePayment(e) {
+  e.preventDefault();
+  const cardId = document.getElementById('payCardId').value;
+  const card = appData.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  const payment = {
+    id: Date.now().toString(),
+    amount: parseFloat(document.getElementById('fPayAmount').value),
+    date: document.getElementById('fPayDate').value
+  };
+
+  card.payments.push(payment);
+  saveData();
+  closeModal('addPaymentModal');
+  render();
+  showNotif(`${card.currency} ${payment.amount.toFixed(2)} payment logged!`, '💰');
+}
+
+// ─── Delete Card ───
+function deleteCard(id) {
+  if (!confirm('Delete this card and all its payments?')) return;
+  appData.cards = appData.cards.filter(c => c.id !== id);
+  saveData();
+  render();
+  showNotif('Card deleted', '🗑️');
+}
+
+// ─── Delete Payment ───
+function deletePayment(cardId, payId) {
+  const card = appData.cards.find(c => c.id === cardId);
+  if (!card) return;
+  card.payments = card.payments.filter(p => p.id !== payId);
+  saveData();
+  render();
+}
+
+// ─── Helpers ───
+function getCurrentMonthPayments(card) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  return card.payments.filter(p => {
+    const d = new Date(p.date);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+}
+
+function getTotalPaid(card) {
+  return getCurrentMonthPayments(card).reduce((s, p) => s + p.amount, 0);
+}
+
+function getDueDate(card) {
+  const now = new Date();
+  let dueDate = new Date(now.getFullYear(), now.getMonth(), card.dueDay);
+  if (dueDate < now) {
+    // If due date passed this month, show next month
+    // But keep current month for payment tracking
+  }
+  return dueDate;
+}
+
+function getDaysUntilDue(card) {
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  let due = new Date(now.getFullYear(), now.getMonth(), card.dueDay);
+  if (due < now) due.setMonth(due.getMonth() + 1);
+  return Math.ceil((due - now) / (1000*60*60*24));
+}
+
+function getDueStatus(card) {
+  const days = getDaysUntilDue(card);
+  if (days <= 0) return 'overdue';
+  if (days <= card.reminderDays) return 'soon';
+  return 'ok';
+}
+
+function formatCurrency(amount, currency) {
+  return `${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// ─── Render ───
+function render() {
+  const list = document.getElementById('cardList');
+  const empty = document.getElementById('emptyState');
+  const countEl = document.getElementById('cardCount');
+
+  if (appData.cards.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    countEl.textContent = '0';
+    document.getElementById('totalPending').textContent = '0';
+    document.getElementById('totalPaid').textContent = '0';
+    return;
+  }
+
+  empty.style.display = 'none';
+  countEl.textContent = appData.cards.length;
+
+  let totalPend = 0, totalPd = 0;
+  let html = '';
+
+  appData.cards.forEach((card, i) => {
+    const paid = getTotalPaid(card);
+    const remaining = Math.max(0, card.amount - paid);
+    const pct = Math.min(100, (paid / card.amount) * 100);
+    const status = getDueStatus(card);
+    const daysLeft = getDaysUntilDue(card);
+    const isComplete = paid >= card.amount;
+    const monthPayments = getCurrentMonthPayments(card);
+
+    totalPend += remaining;
+    totalPd += Math.min(paid, card.amount);
+
+    let statusText = '';
+    if (status === 'overdue') statusText = 'Overdue!';
+    else if (status === 'soon') statusText = `Due in ${daysLeft} day${daysLeft!==1?'s':''}`;
+    else statusText = `Due in ${daysLeft} day${daysLeft!==1?'s':''}`;
+
+    let paymentsHtml = '';
+    monthPayments.forEach(p => {
+      paymentsHtml += `
+        <div class="payment-entry">
+          <div class="pe-info">
+            <span class="pe-amount">+${formatCurrency(p.amount, card.currency)}</span>
+            <span class="pe-date">${new Date(p.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+          </div>
+          <button class="pe-del" onclick="deletePayment('${card.id}','${p.id}')" title="Remove">✕</button>
+        </div>
+      `;
+    });
+
+    html += `
+      <div class="cc-card" data-color="${card.color}" style="animation-delay:${i*0.08}s">
+        <div class="card-gradient"></div>
+        <div class="cc-card-header">
+          <div>
+            <div class="cc-name">${escHtml(card.name)}</div>
+            <div class="cc-due">
+              <span class="dot ${status}"></span>
+              ${statusText} · Day ${card.dueDay}
+            </div>
+          </div>
+          <div class="cc-actions-top">
+            <button class="btn-icon" onclick="openEditCard('${card.id}')" title="Edit">✏️</button>
+            <button class="btn-icon delete" onclick="deleteCard('${card.id}')" title="Delete">🗑</button>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-labels">
+            <span>Payment Progress</span>
+            <span class="amount">${pct.toFixed(0)}%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill ${isComplete ? 'complete' : ''}" style="width:${pct}%"></div>
+          </div>
+          <div class="payment-stats">
+            <div class="stat paid-stat">
+              <div class="stat-val">${formatCurrency(Math.min(paid,card.amount), card.currency)}</div>
+              <div class="stat-label">Paid</div>
+            </div>
+            <div class="stat pend-stat">
+              <div class="stat-val">${formatCurrency(remaining, card.currency)}</div>
+              <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat rem-stat">
+              <div class="stat-val">${formatCurrency(card.amount, card.currency)}</div>
+              <div class="stat-label">Total</div>
+            </div>
+          </div>
+        </div>
+
+        ${card.reminderDays > 0 ? `
+          <div class="reminder-badge">🔔 Reminder ${card.reminderDays} day${card.reminderDays!==1?'s':''} before</div>
+        ` : ''}
+
+        ${isComplete ? '<div class="fully-paid-badge">✅ Fully Paid This Month</div>' : ''}
+
+        ${monthPayments.length > 0 ? `
+          <div class="payment-history" id="ph-${card.id}">
+            <div class="payment-history-title">
+              This Month's Payments
+              <span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent)">${monthPayments.length}</span>
+            </div>
+            ${paymentsHtml}
+          </div>
+        ` : ''}
+
+        ${!isComplete ? `
+          <button class="btn-add-payment" onclick="openPayment('${card.id}')">+ Log Payment</button>
+        ` : ''}
+      </div>
+    `;
+  });
+
+  list.innerHTML = html;
+
+  // Update summary
+  const anyCurrency = appData.cards.length > 0 ? appData.cards[0].currency : 'AED';
+  document.getElementById('totalPending').textContent = formatCurrency(totalPend, anyCurrency);
+  document.getElementById('totalPaid').textContent = formatCurrency(totalPd, anyCurrency);
+}
+
+// ─── History Tab ───
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const emptyEl = document.getElementById('historyEmpty');
+  const countEl = document.getElementById('historyCount');
+
+  let allPayments = [];
+  appData.cards.forEach(card => {
+    card.payments.forEach(p => {
+      allPayments.push({ ...p, cardName: card.name, currency: card.currency });
+    });
+  });
+
+  allPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
+  countEl.textContent = allPayments.length;
+
+  if (allPayments.length === 0) {
+    list.innerHTML = '';
+    emptyEl.style.display = 'block';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  let html = '';
+  allPayments.forEach((p, i) => {
+    html += `
+      <div class="history-card" style="animation-delay:${i*0.05}s">
+        <div class="hc-left">
+          <span class="hc-name">${escHtml(p.cardName)}</span>
+          <span class="hc-date">${new Date(p.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</span>
+        </div>
+        <span class="hc-amount">+${formatCurrency(p.amount, p.currency)}</span>
+      </div>
+    `;
+  });
+  list.innerHTML = html;
+}
+
+// ─── Reminders / Notifications ───
+function checkReminders() {
+  if (!('Notification' in window)) return;
+  
+  if (Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  appData.cards.forEach(card => {
+    const daysLeft = getDaysUntilDue(card);
+    const paid = getTotalPaid(card);
+    const remaining = card.amount - paid;
+
+    if (remaining > 0 && daysLeft <= card.reminderDays && daysLeft >= 0) {
+      showNotif(
+        `${card.name}: ${formatCurrency(remaining, card.currency)} due in ${daysLeft} day${daysLeft!==1?'s':''}`,
+        '🔔'
+      );
+    }
+  });
+}
+
+// ─── In-App Notification ───
+function showNotif(msg, icon = 'ℹ️') {
+  const container = document.getElementById('notifContainer');
+  const el = document.createElement('div');
+  el.className = 'notif-banner';
+  el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('hide');
+    setTimeout(() => el.remove(), 300);
+  }, 3000);
+}
+
+// ─── Utility ───
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ─── Service Worker Registration ───
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
